@@ -1,12 +1,20 @@
 ﻿#include <glad/glad.h> // library that supports finding OpenGL functions, that are dependent on the driver manufacturer
 #include <GLFW/glfw3.h> // openGL supporting library
 #include <iostream>
+#include <vector>
+
+#ifndef M_PI
+#   define M_PI 3.1415926535897932384626433832
+#endif
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 void initializeShader();
 
 unsigned int VAO, shaderProgram;
+float screenHeight = 600.0f;
+float screenWidth = 800.0f;
+int resolution = 100;
 
 // GLSL soure code for basic vertex shader
 const char* vertexShaderSource = R"(
@@ -57,11 +65,12 @@ int main()
     while (!glfwWindowShouldClose(window)) {
         // input
         processInput(window);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         // render
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, resolution + 1);
 
         // check and call events and swap buffers
         glfwSwapBuffers(window);
@@ -125,11 +134,24 @@ void initializeShader() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f, 0.5f, 0.0f
-    };
+    std::vector<float> vertices;
+
+    float centerX = screenWidth/2.0f;
+    float centerY = screenHeight/2.0f;
+    float centerZ = 0;
+    float radius = 50.0f;
+    float angle, x, y, z;
+
+    for (int i = 0; i <= resolution; i++) {
+        angle = 2.0f * M_PI * (static_cast<float>(i) / resolution);
+        x = (centerX + cos(angle) * radius) / (screenWidth / 2.0f) - 1.0f;
+        y = (centerY + sin(angle) * radius) / (screenHeight / 2.0f) - 1.0f;
+        z = 0.0f;
+
+        vertices.push_back(x);
+        vertices.push_back(y);
+        vertices.push_back(z);
+    }
 
     unsigned int VBO; // vertex buffer objects
     glGenVertexArrays(1, &VAO);
@@ -138,7 +160,7 @@ void initializeShader() {
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
