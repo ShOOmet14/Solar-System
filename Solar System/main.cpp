@@ -1,5 +1,8 @@
 ﻿#include <glad/glad.h> // library that supports finding OpenGL functions, that are dependent on the driver manufacturer
 #include <GLFW/glfw3.h> // openGL supporting library
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <vector>
 
