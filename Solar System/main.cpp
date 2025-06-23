@@ -43,7 +43,7 @@ const char* vertexShaderSource = R"(
     layout (location = 1) in vec3 aNormal;
     layout (location = 2) in vec2 aTexCoord;
     
-    out vec2 TexCoords;
+    out vec2 TexCoord;
     out vec3 FragPos;
     out vec3 Normal;
 
@@ -55,7 +55,7 @@ const char* vertexShaderSource = R"(
         FragPos = vec3(model * vec4(aPos, 1.0));
         Normal = mat3(transpose(inverse(model))) * aNormal;
         gl_Position = projection * view * vec4(FragPos, 1.0);
-        TexCoords = aTexCoord;
+        TexCoord = aTexCoord;  
     }
 )";
 
@@ -275,14 +275,6 @@ int main()
         // Rysuj pozostałe planety
         glUniform1f(glGetUniformLocation(shaderProgram, "emissiveStrength"), 0.0f);
         for (size_t i = 1; i < planets.size(); ++i) {
-            if (planets[i].textureID != 0) {
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, planets[i].textureID);
-                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 1);
-            }
-            else {
-                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
-            }
             planets[i].draw(shaderProgram);
             planets[i].drawMoons(shaderProgram); // ← rysuj księżyce
         }
