@@ -2,6 +2,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+unsigned int loadTexture(const char* path);
+
 class Planet {
 public:
     glm::vec3 position;
@@ -12,6 +14,8 @@ public:
     float orbitRadius = 0.0f;
     float orbitSpeed = 0.0f;
     float orbitAngle = 0.0f;
+
+    unsigned int textureID = 0;
 
     Planet(glm::vec3 position, float radius, glm::vec3 color);
 

@@ -29,5 +29,40 @@
     <ClInclude Include="planet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\earth_daymap.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\jupiter.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\mars.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\mercury.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\moon.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\neptune.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\saturn.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\sun.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\uranus.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\venus.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

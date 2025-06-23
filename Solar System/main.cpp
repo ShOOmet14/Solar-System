@@ -5,7 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <vector>
-#include "Planet.h"
+#include "planet.h"
 
 #ifndef M_PI
 #   define M_PI 3.1415926535897932384626433832
@@ -41,18 +41,21 @@ const char* vertexShaderSource = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 aNormal;
-
+    layout (location = 2) in vec2 aTexCoord;
+    
+    out vec2 TexCoords;
     out vec3 FragPos;
     out vec3 Normal;
 
     uniform mat4 model;
     uniform mat4 view;
-    uniform mat4 projection;
+    uniform mat4 projection;  
 
     void main() {
         FragPos = vec3(model * vec4(aPos, 1.0));
         Normal = mat3(transpose(inverse(model))) * aNormal;
         gl_Position = projection * view * vec4(FragPos, 1.0);
+        TexCoords = aTexCoord;
     }
 )";
 
@@ -61,13 +64,16 @@ const char* fragmentShaderSource = R"(
     #version 330 core
     in vec3 FragPos;
     in vec3 Normal;
+    in vec2 TexCoords;
 
     out vec4 FragColor;
 
+    uniform vec3 lightPos;
     uniform vec3 lightColor;
     uniform vec3 objectColor;
-    uniform vec3 lightPos;
     uniform float emissiveStrength;
+    uniform sampler2D texture1;
+    uniform bool useTexture;
 
     void main() {
         float ambientStrength = 0.2;
@@ -78,10 +84,12 @@ const char* fragmentShaderSource = R"(
         float diff = max(dot(norm, lightDirN), 0.0);
         vec3 diffuse = diff * lightColor;
 
-        vec3 emissive = emissiveStrength * objectColor;
+        vec3 baseColor = useTexture ? texture(texture1, TexCoords).rgb : objectColor;
 
+        vec3 emissive = emissiveStrength * baseColor;
         vec3 result = ambient + diffuse + emissive;
-        FragColor = vec4(result, 1.0);
+
+        FragColor = vec4(result * baseColor, 1.0);
     }
 )";
 
@@ -118,6 +126,8 @@ int main()
         std::cout << "Failed to initalize GLAD" << std::endl;
         return -1;
     }
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
 
     initializeShader();
     glEnable(GL_DEPTH_TEST);
@@ -185,8 +195,6 @@ int main()
     tryton.orbitSpeed = 95.0f;
     planets[8].moons.push_back(tryton);
 
-    planets.emplace_back(glm::vec3(0.0f), 0.08f, glm::vec3(0.7f, 0.7f, 1.0f));      // Pluton
-
     // Ustaw parametry orbity dla planet (nie słońca)
     planets[1].orbitRadius = 2.5f;  planets[1].orbitSpeed = 60.0f;  // Merkury
     planets[2].orbitRadius = 3.5f;  planets[2].orbitSpeed = 45.0f;  // Wenus
@@ -196,7 +204,16 @@ int main()
     planets[6].orbitRadius = 10.5f; planets[6].orbitSpeed = 14.0f;  // Saturn
     planets[7].orbitRadius = 12.0f; planets[7].orbitSpeed = 10.0f;  // Uran
     planets[8].orbitRadius = 13.5f; planets[8].orbitSpeed = 8.0f;   // Neptun
-    planets[9].orbitRadius = 15.0f; planets[9].orbitSpeed = 5.0f;   // Pluton
+
+    planets[0].textureID = loadTexture("resources/sun.jpg");
+    planets[1].textureID = loadTexture("resources/mercury.jpg");
+    planets[2].textureID = loadTexture("resources/venus.jpg");
+    planets[3].textureID = loadTexture("resources/earth.jpg");
+    planets[4].textureID = loadTexture("resources/mars.jpg");
+    planets[5].textureID = loadTexture("resources/mercury.jpg");
+    planets[6].textureID = loadTexture("resources/venus.jpg");
+    planets[7].textureID = loadTexture("resources/earth.jpg");
+    planets[8].textureID = loadTexture("resources/mars.jpg");
 
     while (!glfwWindowShouldClose(window)) {
         // input
@@ -222,6 +239,7 @@ int main()
 
         // render
         glUseProgram(shaderProgram);
+        glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
 
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glm::mat4 projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 0.1f, 100.0f);
@@ -257,6 +275,14 @@ int main()
         // Rysuj pozostałe planety
         glUniform1f(glGetUniformLocation(shaderProgram, "emissiveStrength"), 0.0f);
         for (size_t i = 1; i < planets.size(); ++i) {
+            if (planets[i].textureID != 0) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, planets[i].textureID);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 1);
+            }
+            else {
+                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
+            }
             planets[i].draw(shaderProgram);
             planets[i].drawMoons(shaderProgram); // ← rysuj księżyce
         }
@@ -367,15 +393,19 @@ void initializeShader() {
             float ny = y / radius;
             float nz = z / radius;
 
-            // vertex position
-            vertices.push_back(x);
-            vertices.push_back(y);
-            vertices.push_back(z);
+            // vertex position + normal + tex coords
+            vertices.push_back(x);  // pos x
+            vertices.push_back(y);  // pos y
+            vertices.push_back(z);  // pos z
 
-            // vertex normal
-            vertices.push_back(nx);
-            vertices.push_back(ny);
-            vertices.push_back(nz);
+            vertices.push_back(nx); // normal x
+            vertices.push_back(ny); // normal y
+            vertices.push_back(nz); // normal z
+
+            float u = (float)j / sectorCount;
+            float v = (float)i / stackCount;
+            vertices.push_back(u);  // tex u
+            vertices.push_back(v);  // tex v
         }
     }
 
@@ -411,11 +441,21 @@ void initializeShader() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    // Ustaw stride = 8 floatów (3 pozycja, 3 normalne, 2 tex coords)
+    int stride = 8;
+
+    // Pozycja: aPos - location = 0
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    // Normalny: aNormal - location = 1
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    // Tekstura: aTexCoord - location = 2
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
 
     glBindVertexArray(0);
 
