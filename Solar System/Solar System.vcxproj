@@ -136,15 +136,21 @@
     <ClCompile Include="..\libraries\glad\src\glad.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="planet.cpp" />
-    <ClCompile Include="stb_image.cpp" />
+    <ClCompile Include="planets_setup.cpp" />
+    <ClCompile Include="planets_setup.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="planet.h" />
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\resources\ceres_fictional.jpg" />
+    <Image Include="..\resources\earth.jpg" />
     <Image Include="..\resources\earth_daymap.jpg" />
+    <Image Include="..\resources\eris_fictional.jpg" />
+    <Image Include="..\resources\haumea_fictional.jpg" />
     <Image Include="..\resources\jupiter.jpg" />
+    <Image Include="..\resources\makemake_fictional.jpg" />
     <Image Include="..\resources\mars.jpg" />
     <Image Include="..\resources\mercury.jpg" />
     <Image Include="..\resources\moon.jpg" />

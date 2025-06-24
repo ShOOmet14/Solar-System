@@ -1,27 +1,27 @@
 ﻿#include <glad/glad.h> // Biblioteka która pomaga znaleźć funkcje OpenGL, których miejsce zależne jest od sterowników
-#include <GLFW/glfw3.h> // Główna biblioteka OpenGL
-#include <glm/glm.hpp> // Biblioteka matematyczna OpenGL
-#include <glm/gtc/matrix_transform.hpp> // Macierze transformacji, potrzebne do przekształcania obiektów w przestrzeni 3D
-#include <glm/gtc/type_ptr.hpp> // Funkcje pomocnicze do konwersji macierzy i wektorów na tablice floatów, które OpenGL może zrozumieć
-
+#include <GLFW/glfw3.h> // Główna biblioteka OpenGL, tworzenie okna i obsługa klawiatury i myszy
+#include <glm/glm.hpp> // Biblioteka matematyczna 3D OpenGL, zawiera macierze, transformacje i wektory
+#include <glm/gtc/matrix_transform.hpp> 
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <vector>
-#include <cstdlib> // Biblioteka do obsługi losowania księżyców
-#include "planet.h" // Klasa Planet, która zawiera logikę dla planet i ich księżyców
+#include <cstdlib>
+#include "planet.h"
+#include "planets_setup.h"
 
 #ifndef M_PI
 #   define M_PI 3.1415926535897932384626433832
 #endif
 
-// Funkcje callback do obsługi zdarzeń okna
+// Funkcje callback i pomocnicze
 void framebuffer_size_callback(GLFWwindow* window, int width, int height); // Funkcja callback, która ustawia rozmiar okna
 void mouse_callback(GLFWwindow* window, double xpos, double ypos); // Funkcja callback, która obsługuje ruch myszy
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset); // Funkcja callback, która obsługuje przewijanie myszy
 void processInput(GLFWwindow* window); // Funkcja do przetwarzania wejścia z klawiatury
-
 void initializeShader();
 void drawOrbit(float radius, const glm::mat4& view, const glm::mat4& projection);
 
+// Globalne zmienne OpenGL
 unsigned int VAO, shaderProgram;
 unsigned int orbitVAO, orbitVBO;
 unsigned int indexCount;
@@ -32,17 +32,14 @@ float lastFrame = 0.0f;
 glm::vec3 cameraPos = glm::vec3(0.0f, 7.0f, 10.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-// Globalne zmienne do sterowania kamerą
 float yaw = -90.0f; // Kąt obrotu kamery w poziomie
 float pitch = 0.0f; // Kąt obrotu kamery w pionie
-int width, height; // Rozmiar okna
-float lastX = width / 2.0f; // Pozycja kursora X
-float lastY = height / 2.0f; // Pozycja kursora Y
-bool firstMouse = true; // Flaga do pierwszego ruchu myszy
-float fov = 45.0f; // Kąt widzenia kamery (field of view)
+float lastX = 0.0f;
+float lastY = 0.0f;
+bool firstMouse = true;
+float fov = 45.0f;
 
-// Vertex i fragment shadery
+// Vertex shader - definiuje wierzchołki i ich atrybuty
 const char* vertexShaderSource = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
@@ -65,6 +62,7 @@ const char* vertexShaderSource = R"(
     }
 )";
 
+// Fragment shader - oblicza kolor fragmentu na podstawie światła i tekstury
 const char* fragmentShaderSource = R"(
     #version 330 core
     in vec3 FragPos;
@@ -101,229 +99,144 @@ const char* fragmentShaderSource = R"(
 
 int main()
 {
-    // initialization of my window
+    int width, height;
+
+    // Inicjalizacja okna i OpenGL
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor); // Użyj rozdzielczości monitora jako domyślnej
 
     GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "Solar System", monitor, NULL);
-
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
 
-    // set the viewport
     glfwMakeContextCurrent(window);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
-    glfwPollEvents(); // wykonaj raz przed pętlą, żeby ustawić pozycję kursora
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwPollEvents();
 
-    // initialiaztion of GLAD
+	// Pobierz rozmiar okna i ustaw lastX/lastY pozycji myszy
+    glfwGetFramebufferSize(window, &width, &height);
+    lastX = width / 2.0f;
+    lastY = height / 2.0f;
+
+    // Inicjalizacja GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initalize GLAD" << std::endl;
         return -1;
     }
 
-    glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
-
     initializeShader();
-    glEnable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST); // Włącz test głębokości, aby poprawnie rysować obiekty 3D
 
+	// Planety i tekstury
+    glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
     std::vector<Planet> planets;
+    initializePlanets(planets);
 
-	// Tekstury dla księżyców
-    unsigned int moonTexture = loadTexture("F:/Projects/Solar System/Solar System/resources/moon.jpg");
-
-    std::vector<unsigned int> moonTextures = {
-        loadTexture("F:/Projects/Solar System/Solar System/resources/eris_fictional.jpg"),
-        loadTexture("F:/Projects/Solar System/Solar System/resources/makemake_fictional.jpg"),
-        loadTexture("F:/Projects/Solar System/Solar System/resources/haumea_fictional.jpg"),
-        loadTexture("F:/Projects/Solar System/Solar System/resources/ceres_fictional.jpg")
-    };
-
-    // Słońce (pozycja w centrum, bez prędkości)
-    Planet sun(glm::vec3(0.0f), 0.7f, glm::vec3(1.0f, 1.0f, 0.0f));
-    planets.push_back(sun);
-
-    planets.emplace_back(glm::vec3(0.0f), 0.10f, glm::vec3(0.5f));                  // Merkury
-    planets.emplace_back(glm::vec3(0.0f), 0.18f, glm::vec3(0.9f, 0.7f, 0.2f));      // Wenus
-
-    planets.emplace_back(glm::vec3(0.0f), 0.22f, glm::vec3(0.2f, 0.6f, 1.0f));      // Ziemia
-    Planet moon(glm::vec3(0.0f), 0.05f, glm::vec3(0.8f, 0.8f, 0.8f));
-    moon.orbitRadius = 0.5f;
-    moon.orbitSpeed = 100.0f;
-    moon.textureID = moonTexture;
-    planets[3].moons.push_back(moon);
-
-    planets.emplace_back(glm::vec3(0.0f), 0.15f, glm::vec3(0.8f, 0.3f, 0.2f));      // Mars
-    Planet phobos(glm::vec3(0.0f), 0.03f, glm::vec3(0.6f));
-    phobos.orbitRadius = 0.3f;
-    phobos.orbitSpeed = 120.0f;
-    phobos.textureID = moonTextures[rand() % moonTextures.size()];
-
-    Planet deimos(glm::vec3(0.0f), 0.02f, glm::vec3(0.7f));
-    deimos.orbitRadius = 0.5f;
-    deimos.orbitSpeed = 90.0f;
-    deimos.textureID = moonTextures[rand() % moonTextures.size()];
-
-    planets[4].moons.push_back(phobos);
-    planets[4].moons.push_back(deimos);
-
-    planets.emplace_back(glm::vec3(0.0f), 0.45f, glm::vec3(0.9f, 0.8f, 0.6f));      // Jowisz 4 największe księżyce
-    float jMoonSize = 0.05f;
-    
-    Planet io(glm::vec3(0.0f), jMoonSize, glm::vec3(0.9f, 0.6f, 0.3f));
-    io.orbitRadius = 0.7f;
-    io.orbitSpeed = 55.0f;
-    io.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[5].moons.push_back(io);
-
-    Planet europa(glm::vec3(0.0f), jMoonSize, glm::vec3(0.6f, 0.8f, 1.0f));
-    europa.orbitRadius = 0.9f;
-    europa.orbitSpeed = 50.0f;
-    europa.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[5].moons.push_back(europa);
-
-    Planet ganymede(glm::vec3(0.0f), jMoonSize, glm::vec3(0.4f, 0.7f, 0.9f));
-    ganymede.orbitRadius = 1.2f;
-    ganymede.orbitSpeed = 45.0f;
-    ganymede.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[5].moons.push_back(ganymede);
-
-    Planet callisto(glm::vec3(0.0f), jMoonSize, glm::vec3(0.6f, 0.5f, 0.4f));
-    callisto.orbitRadius = 1.5f;
-    callisto.orbitSpeed = 40.0f;
-    callisto.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[5].moons.push_back(callisto);
-
-    planets.emplace_back(glm::vec3(0.0f), 0.40f, glm::vec3(0.9f, 0.85f, 0.5f));     // Saturn
-    Planet tytan(glm::vec3(0.0f), 0.06f, glm::vec3(0.8f, 0.7f, 0.4f));
-    tytan.orbitRadius = 1.0f;
-    tytan.orbitSpeed = 42,5;
-    tytan.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[6].moons.push_back(tytan);
-
-
-    planets.emplace_back(glm::vec3(0.0f), 0.30f, glm::vec3(0.6f, 0.9f, 0.9f));      // Uran
-    Planet miranda(glm::vec3(0.0f), 0.03f, glm::vec3(0.6f, 0.6f, 0.8f));
-    miranda.orbitRadius = 0.8f;
-    miranda.orbitSpeed = 45.0f;
-    miranda.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[7].moons.push_back(miranda);
-
-    planets.emplace_back(glm::vec3(0.0f), 0.28f, glm::vec3(0.4f, 0.5f, 0.9f));      // Neptun
-    Planet tryton(glm::vec3(0.0f), 0.04f, glm::vec3(0.5f, 0.7f, 0.9f));
-    tryton.orbitRadius = 0.7f;
-    tryton.orbitSpeed = 47.5f;
-    tryton.textureID = moonTextures[rand() % moonTextures.size()];
-    planets[8].moons.push_back(tryton);
-
-    // Ustaw parametry orbity dla planet (nie słońca)
-    planets[1].orbitRadius = 2.5f;  planets[1].orbitSpeed = 30.0f;  // Merkury
-    planets[2].orbitRadius = 3.5f;  planets[2].orbitSpeed = 22.5f;  // Wenus
-    planets[3].orbitRadius = 5.0f;  planets[3].orbitSpeed = 17.5f;  // Ziemia
-    planets[4].orbitRadius = 6.5f;  planets[4].orbitSpeed = 14.0f;  // Mars
-    planets[5].orbitRadius = 8.5f;  planets[5].orbitSpeed = 9.0f;  // Jowisz
-    planets[6].orbitRadius = 10.5f; planets[6].orbitSpeed = 7.0f;  // Saturn
-    planets[7].orbitRadius = 12.0f; planets[7].orbitSpeed = 5.0f;  // Uran
-    planets[8].orbitRadius = 13.5f; planets[8].orbitSpeed = 4.0f;   // Neptun
-
-    planets[0].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/sun.jpg");
-    planets[1].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/mercury.jpg");
-    planets[2].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/venus.jpg");
-    planets[3].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/earth.jpg");
-    planets[4].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/mars.jpg");
-    planets[5].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/jupiter.jpg");
-    planets[6].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/saturn.jpg");
-    planets[7].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/uranus.jpg");
-    planets[8].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/neptune.jpg");
-
+    // Pętla główna renderująca
     while (!glfwWindowShouldClose(window)) {
-        // input
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
 
+		// Aktualizacja pozycji planet i ich księżyców
         for (size_t i = 1; i < planets.size(); ++i) {
             planets[i].orbitAngle += planets[i].orbitSpeed * deltaTime;
             float angleRad = glm::radians(planets[i].orbitAngle);
             float x = cos(angleRad) * planets[i].orbitRadius;
             float z = sin(angleRad) * planets[i].orbitRadius;
             planets[i].position = glm::vec3(x, 0.0f, z);
-
-            // Aktualizacja księżyców
             planets[i].updateMoons(deltaTime);
         }
 
         lastFrame = currentFrame;
-        glfwGetFramebufferSize(window, &width, &height);
+		glfwGetFramebufferSize(window, &width, &height); // Dynamczznie pobierz rozmiar okna
 
-        processInput(window);
+		processInput(window); // Przetwarzanie wejścia z klawiatury
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // render
         glUseProgram(shaderProgram);
-        glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0);
 
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glm::mat4 projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 0.1f, 100.0f);
 
-        // teraz można wywołać drawOrbit
-        for (size_t i = 1; i < planets.size(); ++i) {
-            drawOrbit(planets[i].orbitRadius, view, projection);
-        }
+        // Ustaw uniformy view/projection tylko raz
+		glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view)); // macierz widoku
+		glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection)); // macierz projekcji
 
-        glm::mat4 model = glm::mat4(1.0f);
-
-
-        // pobierz lokalizacje
-        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-        unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
-        unsigned int projLoc = glGetUniformLocation(shaderProgram, "projection");
-
-        // ustaw uniformy view/projection tylko raz:
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-        // ustaw światło globalnie
+        // Ustaw światło globalnie
         glUniform3f(glGetUniformLocation(shaderProgram, "lightPos"),
             planets[0].position.x,
             planets[0].position.y,
             planets[0].position.z);
         glUniform3f(glGetUniformLocation(shaderProgram, "lightColor"), 1.0f, 1.0f, 1.0f);
 
-        // Rysuj Słońce jako świecące
-        glUniform1f(glGetUniformLocation(shaderProgram, "emissiveStrength"), 1.0f);
-        planets[0].draw(shaderProgram);
-
-        // Rysuj pozostałe planety
-        glUniform1f(glGetUniformLocation(shaderProgram, "emissiveStrength"), 0.0f);
+        // Rysuj orbity
         for (size_t i = 1; i < planets.size(); ++i) {
-            planets[i].draw(shaderProgram);
-            planets[i].drawMoons(shaderProgram); // ← rysuj księżyce
+            drawOrbit(planets[i].orbitRadius, view, projection);
         }
 
-        // check and call events and swap buffers
-        glfwSwapBuffers(window);
+        // Rysuj Słońce
+        glUniform1f(glGetUniformLocation(shaderProgram, "emissiveStrength"), 1.0f);
+        if (planets[0].textureID != 0) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, planets[0].textureID);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 1);
+        }
+        else {
+            glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
+        }
+        planets[0].draw(shaderProgram);
+
+        // Rysuj pozostałe planety i ich księżyce
+        glUniform1f(glGetUniformLocation(shaderProgram, "emissiveStrength"), 0.0f);
+        for (size_t i = 1; i < planets.size(); ++i) {
+            if (planets[i].textureID != 0) {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, planets[i].textureID);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 1);
+            }
+            else {
+                glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
+            }
+            planets[i].draw(shaderProgram);
+
+            // Księżyce
+            for (const auto& moon : planets[i].moons) {
+                if (moon.textureID != 0) {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, moon.textureID);
+                    glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 1);
+                }
+                else {
+                    glUniform1i(glGetUniformLocation(shaderProgram, "useTexture"), 0);
+                }
+                moon.draw(shaderProgram);
+            }
+        }
+
+		glfwSwapBuffers(window); // Wymiana buforów, aby wyświetlić narysowane obiekty
         glfwPollEvents();
     }
 
     glfwTerminate();
-
-    return 0;
 }
 
+// Funkcja callback, która ustawia rozmiar okna, przyjmuje następujące parametry: okno, szerokość i wysokość
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+// Funkcja do przetwarzania wejścia z klawiatury, przyjmuje następujące parametry: okno
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
@@ -346,8 +259,9 @@ void processInput(GLFWwindow* window) {
 
 }
 
+// Inicjalizuje shadery i tworzy VAO/VBO dla sfery
 void initializeShader() {
-    // vertex shader
+    // Vertex shader, który przekształca wierzchołki i oblicza normalne
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
@@ -362,7 +276,7 @@ void initializeShader() {
         }
     }
 
-    // fragment shader
+	// Fragment shader, który oblicza kolor fragmentu na podstawie światła i tekstury
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
@@ -377,12 +291,13 @@ void initializeShader() {
         }
     }
 
-    // link shaders
+	// Tworzenie programu shaderów, do którego dołączamy vertex i fragment shader
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
-
+	
+    // Lokalne sprawdzanie błędów linkowania programu shaderów
     {
         int success;
         char infoLog[512];
@@ -393,13 +308,15 @@ void initializeShader() {
         }
     }
 
+	// Usuwanie shaderów, które zostały dołączone do programu
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+	// Inicjalizacja VAO/VBO dla sfery
     std::vector<float> vertices;
-    const int sectorCount = 36; // longitude
-    const int stackCount = 18;  // latitude
-    const float radius = 1.0f;
+	const int sectorCount = 36; // liczba sektorów (kółek) w sferze
+	const int stackCount = 18; // liczba stosów (półkul) w sferze
+	const float radius = 1.0f; // promień sfery
 
     for (int i = 0; i <= stackCount; ++i) {
         float stackAngle = M_PI / 2 - i * M_PI / stackCount;
@@ -416,22 +333,23 @@ void initializeShader() {
             float ny = y / radius;
             float nz = z / radius;
 
-            // vertex position + normal + tex coords
-            vertices.push_back(x);  // pos x
-            vertices.push_back(y);  // pos y
-            vertices.push_back(z);  // pos z
+			// Dodaj wierzchołki do wektora
+            vertices.push_back(x);  // pozycja x
+            vertices.push_back(y);  // pozycja y
+            vertices.push_back(z);  // pozycja z
 
-            vertices.push_back(nx); // normal x
-            vertices.push_back(ny); // normal y
-            vertices.push_back(nz); // normal z
+			vertices.push_back(nx); // normalny x
+            vertices.push_back(ny); // normalny y
+            vertices.push_back(nz); // normalny z
 
             float u = (float)j / sectorCount;
             float v = 1.0f - (float)i / stackCount;
-            vertices.push_back(u);
-            vertices.push_back(v);
+			vertices.push_back(u); // tekstura u
+			vertices.push_back(v); // tekstura v
         }
     }
 
+	// Tworzenie indeksów dla sfery, które będą używane do rysowania trójkątów
     std::vector<unsigned int> indices;
     for (int i = 0; i < stackCount; ++i) {
         int k1 = i * (sectorCount + 1);
@@ -450,8 +368,9 @@ void initializeShader() {
 
     indexCount = indices.size();
 
-    unsigned int VBO; // vertex buffer objects
-    unsigned int EBO;
+	// Tworzenie VAO, VBO i EBO dla sfery
+	unsigned int VBO; // Vertex Buffer Object
+	unsigned int EBO; // Element Buffer Object
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
@@ -479,10 +398,9 @@ void initializeShader() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
 
-
     glBindVertexArray(0);
 
-    // Inicjalizacja orbit
+	// Inicjalizacja orbit, tworzenie VAO i VBO dla linii okręgu
     std::vector<float> orbitVertices;
     const int segments = 100;
 
@@ -506,6 +424,7 @@ void initializeShader() {
     glBindVertexArray(0);
 }
 
+// Funkcja callback, która obsługuje ruch myszy, przyjmuje parametry: okno, pozycja x i y myszy
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     if (firstMouse) {
         lastX = xpos;
@@ -513,19 +432,22 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
         firstMouse = false;
     }
 
+	// Oblicz przesunięcie myszy
     float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // odwrócone: góra = większy pitch
+    float yoffset = lastY - ypos;
     lastX = xpos;
     lastY = ypos;
 
+	// Ustaw czułość myszy, aby kontrolować szybkość obrotu kamery
     float sensitivity = 0.1f;
     xoffset *= sensitivity;
     yoffset *= sensitivity;
 
+	// Aktualizuj kąty kamery na podstawie przesunięcia myszy
     yaw += xoffset;
     pitch += yoffset;
 
-    // ogranicz pitch, żeby kamera się nie przewróciła
+    // Ogranicz pitch, żeby kamera się nie przewróciła
     if (pitch > 89.0f)
         pitch = 89.0f;
     if (pitch < -89.0f)
@@ -538,6 +460,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     cameraFront = glm::normalize(front);
 }
 
+// Funkcja callback, która obsługuje przewijanie myszy, przyjmuje parametry: okno, przesunięcie w poziomie i pionie
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     fov -= (float)yoffset;
     if (fov < 1.0f)
@@ -546,10 +469,11 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
         fov = 90.0f;
 }
 
+// Funkcja, która rysuje orbitę planety jako linię okręgu, przyjmuje parametry: promień orbity, macierz widoku i macierz projekcji
 void drawOrbit(float radius, const glm::mat4& view, const glm::mat4& projection) {
-    glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(radius));
+	glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(radius)); // macierz modelu dla orbity
     unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
     glBindVertexArray(orbitVAO);
     glDrawArrays(GL_LINE_LOOP, 0, 100);

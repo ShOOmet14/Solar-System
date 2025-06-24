@@ -24,7 +24,10 @@
     <ClCompile Include="planet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="stb_image.cpp">
+    <ClCompile Include="planets_setup.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="planets_setup.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -65,6 +68,21 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="..\resources\venus.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\ceres_fictional.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\earth.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\eris_fictional.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\haumea_fictional.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\makemake_fictional.jpg">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
