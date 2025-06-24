@@ -1,11 +1,9 @@
 ﻿#include "Planet.h"
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include <glad/glad.h>
 #include <iostream>
+#include "stb_image.h"
 
 
 extern unsigned int VAO, indexCount; // zdefiniowane w main.cpp
@@ -16,6 +14,7 @@ Planet::Planet(glm::vec3 position, float radius, glm::vec3 color)
 
 void Planet::draw(unsigned int shaderProgram) const {
     glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+    model = glm::rotate(model, glm::radians(selfRotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)); // ← rotacja własna
     model = glm::scale(model, glm::vec3(radius));
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
@@ -39,6 +38,8 @@ void Planet::draw(unsigned int shaderProgram) const {
 
 void Planet::update(float deltaTime) {
     orbitAngle += orbitSpeed * deltaTime;
+    selfRotationAngle += selfRotationSpeed * deltaTime;
+
     float angleRad = glm::radians(orbitAngle);
     position = glm::vec3(cos(angleRad) * orbitRadius, 0.0f, sin(angleRad) * orbitRadius);
 }

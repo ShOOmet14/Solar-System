@@ -1,20 +1,24 @@
-﻿#include <glad/glad.h> // library that supports finding OpenGL functions, that are dependent on the driver manufacturer
-#include <GLFW/glfw3.h> // openGL supporting library
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+﻿#include <glad/glad.h> // Biblioteka która pomaga znaleźć funkcje OpenGL, których miejsce zależne jest od sterowników
+#include <GLFW/glfw3.h> // Główna biblioteka OpenGL
+#include <glm/glm.hpp> // Biblioteka matematyczna OpenGL
+#include <glm/gtc/matrix_transform.hpp> // Macierze transformacji, potrzebne do przekształcania obiektów w przestrzeni 3D
+#include <glm/gtc/type_ptr.hpp> // Funkcje pomocnicze do konwersji macierzy i wektorów na tablice floatów, które OpenGL może zrozumieć
+
 #include <iostream>
 #include <vector>
-#include "planet.h"
+#include <cstdlib> // Biblioteka do obsługi losowania księżyców
+#include "planet.h" // Klasa Planet, która zawiera logikę dla planet i ich księżyców
 
 #ifndef M_PI
 #   define M_PI 3.1415926535897932384626433832
 #endif
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-void processInput(GLFWwindow* window);
+// Funkcje callback do obsługi zdarzeń okna
+void framebuffer_size_callback(GLFWwindow* window, int width, int height); // Funkcja callback, która ustawia rozmiar okna
+void mouse_callback(GLFWwindow* window, double xpos, double ypos); // Funkcja callback, która obsługuje ruch myszy
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset); // Funkcja callback, która obsługuje przewijanie myszy
+void processInput(GLFWwindow* window); // Funkcja do przetwarzania wejścia z klawiatury
+
 void initializeShader();
 void drawOrbit(float radius, const glm::mat4& view, const glm::mat4& projection);
 
@@ -24,26 +28,28 @@ unsigned int indexCount;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+// Globalne zmienne kamery
 glm::vec3 cameraPos = glm::vec3(0.0f, 7.0f, 10.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-float yaw = -90.0f; // zaczynamy od patrzenia w -Z
-float pitch = 0.0f;
-int width, height;
-float lastX = width / 2.0f;
-float lastY = height / 2.0f;
-bool firstMouse = true;
-float fov = 45.0f;
+// Globalne zmienne do sterowania kamerą
+float yaw = -90.0f; // Kąt obrotu kamery w poziomie
+float pitch = 0.0f; // Kąt obrotu kamery w pionie
+int width, height; // Rozmiar okna
+float lastX = width / 2.0f; // Pozycja kursora X
+float lastY = height / 2.0f; // Pozycja kursora Y
+bool firstMouse = true; // Flaga do pierwszego ruchu myszy
+float fov = 45.0f; // Kąt widzenia kamery (field of view)
 
-// GLSL soure code for basic vertex shader
+// Vertex i fragment shadery
 const char* vertexShaderSource = R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 aNormal;
     layout (location = 2) in vec2 aTexCoord;
     
-    out vec2 TexCoord;
+    out vec2 TexCoords;
     out vec3 FragPos;
     out vec3 Normal;
 
@@ -55,10 +61,9 @@ const char* vertexShaderSource = R"(
         FragPos = vec3(model * vec4(aPos, 1.0));
         Normal = mat3(transpose(inverse(model))) * aNormal;
         gl_Position = projection * view * vec4(FragPos, 1.0);
-        TexCoord = aTexCoord;  
+        TexCoords = aTexCoord;  
     }
 )";
-
 
 const char* fragmentShaderSource = R"(
     #version 330 core
@@ -134,6 +139,16 @@ int main()
 
     std::vector<Planet> planets;
 
+	// Tekstury dla księżyców
+    unsigned int moonTexture = loadTexture("F:/Projects/Solar System/Solar System/resources/moon.jpg");
+
+    std::vector<unsigned int> moonTextures = {
+        loadTexture("F:/Projects/Solar System/Solar System/resources/eris_fictional.jpg"),
+        loadTexture("F:/Projects/Solar System/Solar System/resources/makemake_fictional.jpg"),
+        loadTexture("F:/Projects/Solar System/Solar System/resources/haumea_fictional.jpg"),
+        loadTexture("F:/Projects/Solar System/Solar System/resources/ceres_fictional.jpg")
+    };
+
     // Słońce (pozycja w centrum, bez prędkości)
     Planet sun(glm::vec3(0.0f), 0.7f, glm::vec3(1.0f, 1.0f, 0.0f));
     planets.push_back(sun);
@@ -145,75 +160,91 @@ int main()
     Planet moon(glm::vec3(0.0f), 0.05f, glm::vec3(0.8f, 0.8f, 0.8f));
     moon.orbitRadius = 0.5f;
     moon.orbitSpeed = 100.0f;
-    planets[3].moons.push_back(moon); // Ziemia jest na pozycji 3
+    moon.textureID = moonTexture;
+    planets[3].moons.push_back(moon);
 
     planets.emplace_back(glm::vec3(0.0f), 0.15f, glm::vec3(0.8f, 0.3f, 0.2f));      // Mars
     Planet phobos(glm::vec3(0.0f), 0.03f, glm::vec3(0.6f));
     phobos.orbitRadius = 0.3f;
     phobos.orbitSpeed = 120.0f;
+    phobos.textureID = moonTextures[rand() % moonTextures.size()];
 
     Planet deimos(glm::vec3(0.0f), 0.02f, glm::vec3(0.7f));
     deimos.orbitRadius = 0.5f;
     deimos.orbitSpeed = 90.0f;
+    deimos.textureID = moonTextures[rand() % moonTextures.size()];
 
     planets[4].moons.push_back(phobos);
     planets[4].moons.push_back(deimos);
 
     planets.emplace_back(glm::vec3(0.0f), 0.45f, glm::vec3(0.9f, 0.8f, 0.6f));      // Jowisz 4 największe księżyce
     float jMoonSize = 0.05f;
-    planets[5].moons.push_back(Planet(glm::vec3(0.0f), jMoonSize, glm::vec3(0.9f, 0.6f, 0.3f))); // Io
-    planets[5].moons.back().orbitRadius = 0.7f;
-    planets[5].moons.back().orbitSpeed = 110.0f;
+    
+    Planet io(glm::vec3(0.0f), jMoonSize, glm::vec3(0.9f, 0.6f, 0.3f));
+    io.orbitRadius = 0.7f;
+    io.orbitSpeed = 55.0f;
+    io.textureID = moonTextures[rand() % moonTextures.size()];
+    planets[5].moons.push_back(io);
 
-    planets[5].moons.push_back(Planet(glm::vec3(0.0f), jMoonSize, glm::vec3(0.6f, 0.8f, 1.0f))); // Europa
-    planets[5].moons.back().orbitRadius = 0.9f;
-    planets[5].moons.back().orbitSpeed = 100.0f;
+    Planet europa(glm::vec3(0.0f), jMoonSize, glm::vec3(0.6f, 0.8f, 1.0f));
+    europa.orbitRadius = 0.9f;
+    europa.orbitSpeed = 50.0f;
+    europa.textureID = moonTextures[rand() % moonTextures.size()];
+    planets[5].moons.push_back(europa);
 
-    planets[5].moons.push_back(Planet(glm::vec3(0.0f), jMoonSize, glm::vec3(0.4f, 0.7f, 0.9f))); // Ganimedes
-    planets[5].moons.back().orbitRadius = 1.2f;
-    planets[5].moons.back().orbitSpeed = 90.0f;
+    Planet ganymede(glm::vec3(0.0f), jMoonSize, glm::vec3(0.4f, 0.7f, 0.9f));
+    ganymede.orbitRadius = 1.2f;
+    ganymede.orbitSpeed = 45.0f;
+    ganymede.textureID = moonTextures[rand() % moonTextures.size()];
+    planets[5].moons.push_back(ganymede);
 
-    planets[5].moons.push_back(Planet(glm::vec3(0.0f), jMoonSize, glm::vec3(0.6f, 0.5f, 0.4f))); // Kallisto
-    planets[5].moons.back().orbitRadius = 1.5f;
-    planets[5].moons.back().orbitSpeed = 80.0f;
+    Planet callisto(glm::vec3(0.0f), jMoonSize, glm::vec3(0.6f, 0.5f, 0.4f));
+    callisto.orbitRadius = 1.5f;
+    callisto.orbitSpeed = 40.0f;
+    callisto.textureID = moonTextures[rand() % moonTextures.size()];
+    planets[5].moons.push_back(callisto);
 
     planets.emplace_back(glm::vec3(0.0f), 0.40f, glm::vec3(0.9f, 0.85f, 0.5f));     // Saturn
     Planet tytan(glm::vec3(0.0f), 0.06f, glm::vec3(0.8f, 0.7f, 0.4f));
     tytan.orbitRadius = 1.0f;
-    tytan.orbitSpeed = 85.0f;
+    tytan.orbitSpeed = 42,5;
+    tytan.textureID = moonTextures[rand() % moonTextures.size()];
     planets[6].moons.push_back(tytan);
+
 
     planets.emplace_back(glm::vec3(0.0f), 0.30f, glm::vec3(0.6f, 0.9f, 0.9f));      // Uran
     Planet miranda(glm::vec3(0.0f), 0.03f, glm::vec3(0.6f, 0.6f, 0.8f));
     miranda.orbitRadius = 0.8f;
-    miranda.orbitSpeed = 90.0f;
+    miranda.orbitSpeed = 45.0f;
+    miranda.textureID = moonTextures[rand() % moonTextures.size()];
     planets[7].moons.push_back(miranda);
 
     planets.emplace_back(glm::vec3(0.0f), 0.28f, glm::vec3(0.4f, 0.5f, 0.9f));      // Neptun
     Planet tryton(glm::vec3(0.0f), 0.04f, glm::vec3(0.5f, 0.7f, 0.9f));
     tryton.orbitRadius = 0.7f;
-    tryton.orbitSpeed = 95.0f;
+    tryton.orbitSpeed = 47.5f;
+    tryton.textureID = moonTextures[rand() % moonTextures.size()];
     planets[8].moons.push_back(tryton);
 
     // Ustaw parametry orbity dla planet (nie słońca)
-    planets[1].orbitRadius = 2.5f;  planets[1].orbitSpeed = 60.0f;  // Merkury
-    planets[2].orbitRadius = 3.5f;  planets[2].orbitSpeed = 45.0f;  // Wenus
-    planets[3].orbitRadius = 5.0f;  planets[3].orbitSpeed = 35.0f;  // Ziemia
-    planets[4].orbitRadius = 6.5f;  planets[4].orbitSpeed = 28.0f;  // Mars
-    planets[5].orbitRadius = 8.5f;  planets[5].orbitSpeed = 18.0f;  // Jowisz
-    planets[6].orbitRadius = 10.5f; planets[6].orbitSpeed = 14.0f;  // Saturn
-    planets[7].orbitRadius = 12.0f; planets[7].orbitSpeed = 10.0f;  // Uran
-    planets[8].orbitRadius = 13.5f; planets[8].orbitSpeed = 8.0f;   // Neptun
+    planets[1].orbitRadius = 2.5f;  planets[1].orbitSpeed = 30.0f;  // Merkury
+    planets[2].orbitRadius = 3.5f;  planets[2].orbitSpeed = 22.5f;  // Wenus
+    planets[3].orbitRadius = 5.0f;  planets[3].orbitSpeed = 17.5f;  // Ziemia
+    planets[4].orbitRadius = 6.5f;  planets[4].orbitSpeed = 14.0f;  // Mars
+    planets[5].orbitRadius = 8.5f;  planets[5].orbitSpeed = 9.0f;  // Jowisz
+    planets[6].orbitRadius = 10.5f; planets[6].orbitSpeed = 7.0f;  // Saturn
+    planets[7].orbitRadius = 12.0f; planets[7].orbitSpeed = 5.0f;  // Uran
+    planets[8].orbitRadius = 13.5f; planets[8].orbitSpeed = 4.0f;   // Neptun
 
-    planets[0].textureID = loadTexture("resources/sun.jpg");
-    planets[1].textureID = loadTexture("resources/mercury.jpg");
-    planets[2].textureID = loadTexture("resources/venus.jpg");
-    planets[3].textureID = loadTexture("resources/earth.jpg");
-    planets[4].textureID = loadTexture("resources/mars.jpg");
-    planets[5].textureID = loadTexture("resources/mercury.jpg");
-    planets[6].textureID = loadTexture("resources/venus.jpg");
-    planets[7].textureID = loadTexture("resources/earth.jpg");
-    planets[8].textureID = loadTexture("resources/mars.jpg");
+    planets[0].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/sun.jpg");
+    planets[1].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/mercury.jpg");
+    planets[2].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/venus.jpg");
+    planets[3].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/earth.jpg");
+    planets[4].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/mars.jpg");
+    planets[5].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/jupiter.jpg");
+    planets[6].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/saturn.jpg");
+    planets[7].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/uranus.jpg");
+    planets[8].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/neptune.jpg");
 
     while (!glfwWindowShouldClose(window)) {
         // input
@@ -395,9 +426,9 @@ void initializeShader() {
             vertices.push_back(nz); // normal z
 
             float u = (float)j / sectorCount;
-            float v = (float)i / stackCount;
-            vertices.push_back(u);  // tex u
-            vertices.push_back(v);  // tex v
+            float v = 1.0f - (float)i / stackCount;
+            vertices.push_back(u);
+            vertices.push_back(v);
         }
     }
 
