@@ -7,13 +7,13 @@ extern unsigned int loadTexture(const char* path);
 
 // Funkcja inicjaluzująca planety, przyjmuje parametr: tablica wektorowa planet
 void initializePlanets(std::vector<Planet>& planets) {
-    unsigned int moonTexture = loadTexture("F:/Projects/Solar System/Solar System/resources/moon.jpg");
+    unsigned int moonTexture = loadTexture("resources/moon.jpg");
 
     std::vector<unsigned int> moonTextures = {
-        loadTexture("F:/Projects/Solar System/Solar System/resources/eris_fictional.jpg"),
-        loadTexture("F:/Projects/Solar System/Solar System/resources/makemake_fictional.jpg"),
-        loadTexture("F:/Projects/Solar System/Solar System/resources/haumea_fictional.jpg"),
-        loadTexture("F:/Projects/Solar System/Solar System/resources/ceres_fictional.jpg")
+        loadTexture("resources/eris_fictional.jpg"),
+        loadTexture("resources/makemake_fictional.jpg"),
+        loadTexture("resources/haumea_fictional.jpg"),
+        loadTexture("resources/ceres_fictional.jpg")
     };
 
     Planet sun(glm::vec3(0.0f), 0.7f, glm::vec3(1.0f, 1.0f, 0.0f));
@@ -110,13 +110,13 @@ void initializePlanets(std::vector<Planet>& planets) {
     planets[8].orbitRadius = 13.5f; planets[8].orbitSpeed = 4.0f;
 
     // Tekstury planet
-    planets[0].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/sun.jpg");
-    planets[1].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/mercury.jpg");
-    planets[2].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/venus.jpg");
-    planets[3].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/earth.jpg");
-    planets[4].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/mars.jpg");
-    planets[5].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/jupiter.jpg");
-    planets[6].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/saturn.jpg");
-    planets[7].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/uranus.jpg");
-    planets[8].textureID = loadTexture("F:/Projects/Solar System/Solar System/resources/neptune.jpg");
+    planets[0].textureID = loadTexture("resources/sun.jpg");
+    planets[1].textureID = loadTexture("resources/mercury.jpg");
+    planets[2].textureID = loadTexture("resources/venus.jpg");
+    planets[3].textureID = loadTexture("resources/earth.jpg");
+    planets[4].textureID = loadTexture("resources/mars.jpg");
+    planets[5].textureID = loadTexture("resources/jupiter.jpg");
+    planets[6].textureID = loadTexture("resources/saturn.jpg");
+    planets[7].textureID = loadTexture("resources/uranus.jpg");
+    planets[8].textureID = loadTexture("resources/neptune.jpg");
 }
